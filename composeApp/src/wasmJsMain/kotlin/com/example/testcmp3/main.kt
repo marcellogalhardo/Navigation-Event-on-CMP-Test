@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
 package com.example.testcmp3
 
 import androidx.compose.foundation.layout.Column
@@ -21,8 +23,13 @@ import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import com.example.testcmp3.BrowserInput.Companion.TYPE_POPSTATE
 import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
@@ -69,7 +76,7 @@ fun Test(browserHistory: BrowserHistory) {
 
         Button(onClick = {
             val oldState = browserHistory.state
-            browserHistory.replace(count.toString().toJsString())
+            browserHistory.replace(count.toString().toJsString(), null)
             document.title = count.toString()
             println("replace $oldState with $count")
             text = count.toString()
@@ -79,7 +86,7 @@ fun Test(browserHistory: BrowserHistory) {
             Text("Replace")
         }
         Button(onClick = {
-            browserHistory.push(count.toString().toJsString())
+            browserHistory.push(count.toString().toJsString(), null)
             document.title = count.toString()
             println("push $count")
             text = count.toString()
@@ -93,7 +100,7 @@ fun Test(browserHistory: BrowserHistory) {
         Button(onClick = {
             GlobalScope.launch {
                 val event = browserHistory.go(-1)
-                text = event.state.toString()
+                text = browserHistory.state.toString()
                 if (index > 0) index--
             }
         }) {
@@ -102,7 +109,7 @@ fun Test(browserHistory: BrowserHistory) {
         Button(onClick = {
             GlobalScope.launch {
                 val event = browserHistory.go(1)
-                text = event.state.toString()
+                text = browserHistory.state.toString()
                 if (index < hist.size - 1) index++
             }
         }) {
@@ -111,207 +118,236 @@ fun Test(browserHistory: BrowserHistory) {
     }
 }
 
-class BrowserInput(private val window: Window): NavigationEventInput() {
 
-    private var navigationEventHistory : NavigationEventHistory? = null
+internal class BrowserInput(
+    private val browserWindow: BrowserWindow,
+    private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.Main,
+) : NavigationEventInput() {
 
-    private val browserHistory = BrowserHistory(window)
+    private var coroutineScope: CoroutineScope? = null
 
-    companion object {
+    internal companion object {
         const val TYPE_POPSTATE = "popstate"
-        const val RESERVED_TITLE = "[reserved]"
     }
+
+    private val currentHistory: SessionHistory = SessionHistory()
 
     private var processPopState = true
 
     private var processHistoryChange = true
 
-    @OptIn(DelicateCoroutinesApi::class)
+    private val browserHistory = browserWindow.history
+
+    public constructor(window: Window) : this(BrowserWindowImpl(window))
+
     override fun onAdded(dispatcher: NavigationEventDispatcher) {
-        println("onAdded")
-        GlobalScope.launch {
-            window.createPopStateFlow().collect(::onPopState)
-        }
-        // Use the first entry as the reserved entry.
-        browserHistory.replace((-1).toJsNumber())
-        document.title = RESERVED_TITLE
+        // Only start listening to popstate events after the input is connected to a dispatcher.
+        val scope = CoroutineScope(coroutineDispatcher)
+        scope.launch { browserWindow.createPopStateFlow().collect(::onPopState) }
+        coroutineScope = scope
+
+        // Initialize the browser history to [entries from other apps or instances, ... , 0*].
+        browserHistory.replace(0.toJsNumber(), null)
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
+    override fun onRemoved() {
+        coroutineScope?.cancel()
+        currentHistory.reset()
+        processPopState = true
+        processHistoryChange = true
+    }
+
     private fun onPopState(popStateEvent: PopStateEvent) {
-        println("onPopState: index: ${popStateEvent.state}")
-        if (!processPopState) return
+        if (!processPopState) {
+            return
+        }
         val state = popStateEvent.state ?: return
-
-        val newIndex = (state as JsNumber).toInt()
-
-        if (navigationEventHistory == null) return
-
-        val currentIndex = navigationEventHistory!!.currentIndex
-
-        if (newIndex < 0) {
-            // User goes to our reserved entry, so we move them to the first entry.
-            GlobalScope.launch {
-                browserHistory.go(1)
+        val newIndex = (state as? JsNumber)?.toInt() ?: return
+        if (
+            newIndex != currentHistory.index &&
+            (newIndex < 0 || newIndex >= currentHistory.actualSize)
+        ) {
+            // User goes to an invalid entry, so we move them back.
+            coroutineScope!!.launch {
+                disableOnPopStateCallback { browserHistory.go(newIndex, currentHistory.index) }
             }
         } else {
-            if (newIndex < currentIndex) {
-                val timesToGoBack = currentIndex - newIndex
-                processHistoryChange = false
-                repeat(timesToGoBack - 1) {
-                    dispatchOnBackCompleted()
+            if (newIndex < currentHistory.index) {
+                // Trigger one or more dispatchOnBackCompleted. Only process onHistoryChanged
+                // on the last one.
+                val timesToGoBack = currentHistory.index - newIndex
+                disableHistoryUpdateCallback {
+                    repeat(timesToGoBack - 1) { dispatchOnBackCompleted() }
                 }
-                processHistoryChange = true
                 dispatchOnBackCompleted()
-            } else if (newIndex > currentIndex) {
-                val timesToGoForward = newIndex - currentIndex
-                processHistoryChange = false
-                repeat(timesToGoForward - 1) {
-                    dispatchOnForwardCompleted()
+            } else if (newIndex > currentHistory.index) {
+                // Trigger one or more dispatchOnForwardCompleted. Only process onHistoryChanged
+                // on the last one.
+                val timesToGoForward = newIndex - currentHistory.index
+                disableHistoryUpdateCallback {
+                    repeat(timesToGoForward - 1) { dispatchOnForwardCompleted() }
                 }
-                processHistoryChange = true
                 dispatchOnForwardCompleted()
-            } else if (newIndex == currentIndex){
-                println("index == current !?")
             }
+            currentHistory.index = newIndex
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     override fun onHistoryChanged(history: NavigationEventHistory) {
-        println("gyz: onHistoryChanged, new: ${history.debugString()}, current: ${navigationEventHistory?.debugString()}")
-        if (!processHistoryChange) return
-
-        // We may get None first when disposing the previous destination
-        if (history.currentIndex < 0 ||
-            history.mergedHistory[history.currentIndex] == NavigationEventInfo.None
-        ) return
-
-        GlobalScope.launch {
-            updateBrowserHistory(history)
+        if (!processHistoryChange) {
+            return
         }
-    }
-
-    suspend fun updateBrowserHistory(
-        newHistory: NavigationEventHistory
-    ) {
-        if (newHistory.mergedHistory.isEmpty() || newHistory.currentIndex < 0) {
+        // We may get None first when disposing the previous Composable destination.
+        if (
+            history.currentIndex < 0 ||
+            history.mergedHistory[history.currentIndex] == NavigationEventInfo.None
+        ) {
             return
         }
 
-        // Go back to the reserved entry.
-        if (navigationEventHistory != null) {
-            val browserHistoryState = browserHistory.state
-            val stepsToGoBack = (browserHistoryState as? JsNumber)?.toInt() ?: error("got state $browserHistoryState")
-            println("steps to go back: $stepsToGoBack")
-            processPopState = false
-            val event = browserHistory.go(-(stepsToGoBack + 1))
-            processPopState = true
-            println("After going back: ${browserHistory.state} vs ${event.state}")
-        }
+        coroutineScope!!.launch { disableOnPopStateCallback { updateBrowserHistory(history) } }
+    }
 
-        // Make sure we're at the beginning
-        val currentIndex = (browserHistory.state as JsNumber).toInt()
-        check(currentIndex == -1) {
-            "current index = $currentIndex!?"
-        }
+    private suspend fun updateBrowserHistory(newHistory: NavigationEventHistory) {
+        if (currentHistory.availableSize >= newHistory.mergedHistory.size) {
+            // We have enough entries already. Go to the new currentIndex directly.
+            browserHistory.go(currentHistory.index, newHistory.currentIndex)
+        } else { // newHistory.entries.size > oldHistory.entries.size
+            // We don't have enough entries, so we start pushing at the end.
 
-        // Start adding new entries.
-        if (navigationEventHistory != null &&
-            newHistory.mergedHistory.size >= navigationEventHistory!!.mergedHistory.size) {
-            // We don't need to remove anything so reuse the existing entries.
-            var index = 0
-            while (index < navigationEventHistory!!.mergedHistory.size) {
-                processPopState = false
-                browserHistory.go(1)
-                processPopState = true
-                val info = newHistory.mergedHistory[index]
-                println("replacing ${browserHistory.state} with ${index}")
-                browserHistory.replace(index.toJsNumber(), "#${info}")
-                document.title = info.toString()
-                index++
-            }
-            // Now we have used up all the old entries so start pushing.
+            // Move to the last entry
+            browserHistory.go(currentHistory.index, currentHistory.availableSize - 1)
+
+            var index = currentHistory.availableSize
             while (index < newHistory.mergedHistory.size) {
-                val info = newHistory.mergedHistory[index]
-                browserHistory.push(index.toJsNumber(), "#${info}")
-                document.title = info.toString()
+                browserHistory.push(index.toJsNumber(), null)
                 index++
             }
-        } else {
-            document.title = RESERVED_TITLE // otherwise the title is still the same as before going back.
-            for ((index, info) in newHistory.mergedHistory.withIndex()) {
-                println("before push: ${document.title}")
-                browserHistory.push(index.toJsNumber(), "#${info}")
-                document.title = info.toString() // todo: title?
-                println("setting title to $info")
+
+            // Go back to currentIndex.
+            browserHistory.go(newHistory.mergedHistory.size - 1, newHistory.currentIndex)
+
+            currentHistory.availableSize = newHistory.mergedHistory.size
+        }
+        currentHistory.index = newHistory.currentIndex
+        currentHistory.actualSize = newHistory.mergedHistory.size
+    }
+
+    private inline fun disableOnPopStateCallback(content: () -> Unit) {
+        processPopState = false
+        content()
+        processPopState = true
+    }
+
+    private inline fun disableHistoryUpdateCallback(content: () -> Unit) {
+        processHistoryChange = false
+        content()
+        processHistoryChange = true
+    }
+
+    // `SessionHistory(1, 2, 3)` means a browser history like [0, 1*#, 2]:
+    // We have three entries in the browser history, two entries in the
+    // NavigationEventHistory (denoted by #), and the current index is one (denoted by *).
+    private class SessionHistory(
+        var index: Int = 0,
+        var actualSize: Int = 1,
+        var availableSize: Int = 1,
+    ) {
+        fun reset() {
+            index = 0
+            actualSize = 1
+            availableSize = 1
+        }
+
+        override fun toString(): String {
+            val result = buildString {
+                append("[")
+                for (i in 0 until availableSize) {
+                    append(i)
+                    if (i == index) {
+                        append("*")
+                    }
+                    if (i == actualSize - 1) {
+                        append("#")
+                    }
+                    if (i < availableSize - 1) {
+                        append(", ")
+                    }
+                }
+                append("]")
             }
+            return result
         }
+    }
 
-        // Now we go back to "current".
-        val stepsToGoBack = newHistory.mergedHistory.size - newHistory.currentIndex - 1
-        if (stepsToGoBack > 0) {
-            processPopState = false
-            browserHistory.go(-stepsToGoBack)
-            processPopState = true
+    private suspend fun BrowserHistory.go(source: Int, destination: Int) {
+        val delta = destination - source
+        if (delta != 0) {
+            go(delta)
         }
-
-        // Update history.
-        navigationEventHistory = newHistory
     }
 }
 
-// utils
-
-private fun NavigationEventHistory.debugString(): String {
-    val historyEntries = mergedHistory.withIndex().joinToString { (index, info) ->
-        if (index == currentIndex) {
-            "$index: $info*"
-        } else {
-            "$index: $info"
-        }
-    }
-    return "[$historyEntries]"
+private fun BrowserWindow.createPopStateFlow() = callbackFlow {
+    val callback: (Event) -> Unit = { event: Event -> trySend(event as PopStateEvent) }
+    addEventListener(BrowserInput.TYPE_POPSTATE, callback)
+    awaitClose { removeEventListener(BrowserInput.TYPE_POPSTATE, callback) }
 }
 
-private fun Window.createPopStateFlow() = callbackFlow {
-    val callback: (Event) -> Unit = { event: Event ->
-        trySend(event as PopStateEvent)
+interface BrowserWindow {
+    val history: BrowserHistory
+
+    fun addEventListener(type: String, callback: (Event) -> Unit)
+
+    fun removeEventListener(type: String, callback: (Event) -> Unit)
+}
+
+class BrowserWindowImpl(private val window: Window) : BrowserWindow {
+    override val history: BrowserHistory = BrowserHistoryImpl(window)
+
+    override fun addEventListener(type: String, callback: (Event) -> Unit) {
+        window.addEventListener(type, callback)
     }
-    window.addEventListener(TYPE_POPSTATE, callback)
-    awaitClose {
-        window.removeEventListener(TYPE_POPSTATE, callback)
+
+    override fun removeEventListener(type: String, callback: (Event) -> Unit) {
+        window.removeEventListener(type, callback)
     }
 }
 
-class BrowserHistory(private val window: Window) {
+interface BrowserHistory {
     val state: JsAny?
+
+    fun push(data: JsAny?, url: String?)
+
+    fun replace(data: JsAny?, url: String?)
+
+    suspend fun go(delta: Int)
+}
+
+class BrowserHistoryImpl(private val window: Window) : BrowserHistory {
+    override val state: JsAny?
         get() = window.history.state
 
-    fun push(data: JsAny?, url: String? = null) {
-        println("BrowserHistory.push($data, $url)")
+    override fun push(data: JsAny?, url: String?) {
         window.history.pushState(data, "", url)
     }
 
-    fun replace(data: JsAny?, url: String? = null) {
-        println("BrowserHistory.replace($data, $url)")
+    override fun replace(data: JsAny?, url: String?) {
         window.history.replaceState(data, "", url)
     }
 
-    suspend fun go(delta: Int): PopStateEvent {
-        println("BrowserHistory.go($delta)")
-
+    override suspend fun go(delta: Int) {
+        if (delta == 0) return // Ignore "refresh" for now.
         window.history.go(delta)
-        return window.createPopStateFlow().first() // todo: will get stuck if we go out of range.
-
-//        val state = window.history.state
-//        window.history.go(delta)
-//        while (window.history.state == state) {
-//            delay(100)
-//        }
-//        println("end of BrowserHistory.go($delta)")
-//        return state
+        // TODO: Will get stuck if we go out of range. For example, if the history is [a, b*, c],
+        // and we call `history.go(2)`, we'll be stuck here as the call will be ignored and we
+        // won't receive a popstate event.
+        window.createPopStateFlow().first()
     }
 }
 
-
+private fun Window.createPopStateFlow() = callbackFlow {
+    val callback: (Event) -> Unit = { event: Event -> trySend(event as PopStateEvent) }
+    window.addEventListener(BrowserInput.TYPE_POPSTATE, callback)
+    awaitClose { window.removeEventListener(BrowserInput.TYPE_POPSTATE, callback) }
+}
