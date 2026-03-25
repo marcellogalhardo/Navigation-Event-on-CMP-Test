@@ -12,17 +12,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationEventHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.example.testcmp3.Destination.*
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-enum class Destination: NavigationEventInfo {
-    Settings,
-    Connection,
-    Battery,
-    Health,
-    General,
-    About,
-    Language,
+sealed class Destination : NavigationEventInfo() {
+    data object Settings : Destination()
+    data object Connection : Destination()
+    data object Battery : Destination()
+    data object Health : Destination()
+    data object General : Destination()
+    data object About : Destination()
+    data object Language : Destination()
 }
 
 @Composable
@@ -41,40 +42,48 @@ fun Content() {
 
     val (current, parent, children) = when (backStack.lastOrNull()) {
         Settings ->
-            Triple(Settings,
-            null,
-            listOf(Connection, Battery, General)
-        )
+            Triple(
+                Settings,
+                null,
+                listOf(Connection, Battery, General)
+            )
+
         Connection -> Triple(
             Connection,
             Settings,
             listOf()
         )
+
         Battery -> Triple(
             Battery,
             Settings,
             listOf(Health),
         )
+
         Health -> Triple(
             Health,
             Battery,
             listOf(),
         )
+
         General -> Triple(
             General,
             Settings,
             listOf(About, Language),
         )
+
         About -> Triple(
             About,
             General,
             listOf(),
         )
+
         Language -> Triple(
             Language,
             General,
             listOf(),
         )
+
         null -> {
             error("Error: Back stack is empty!")
         }
@@ -112,9 +121,11 @@ fun Screen(
     }
 
     NavigationEventHandler(
-        currentInfo = current,
-        backInfo = if (backStack.isEmpty()) emptyList() else backStack.dropLast(1),
-        forwardInfo = if (children.size == 1) listOf(children.single()) else emptyList(),
+        state = rememberNavigationEventState(
+            currentInfo = current,
+            backInfo = if (backStack.isEmpty()) emptyList() else backStack.dropLast(1),
+            forwardInfo = if (children.size == 1) listOf(children.single()) else emptyList(),
+        ),
         onBackCompleted = {
             println("gyz:onBackCompleted")
             backStack.removeLastOrNull()
