@@ -1,19 +1,30 @@
 package com.example.testcmp3
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationEventHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
-import com.example.testcmp3.Destination.*
+import com.example.testcmp3.Destination.About
+import com.example.testcmp3.Destination.Battery
+import com.example.testcmp3.Destination.Connection
+import com.example.testcmp3.Destination.General
+import com.example.testcmp3.Destination.Health
+import com.example.testcmp3.Destination.Language
+import com.example.testcmp3.Destination.Settings
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 sealed class Destination : NavigationEventInfo() {
@@ -99,6 +110,13 @@ fun Screen(
     backStack: MutableList<Destination>
 ) {
     Column {
+        Button(
+            onClick = { backStack.removeAll { it != backStack.first() } },
+            shape = ButtonDefaults.elevatedShape,
+            border = BorderStroke(width = 2.dp, color = Color.Red),
+            content = { Text(text = "Clear BackStack") }
+        )
+
         if (parent == null) {
             Text("This is the root screen")
         } else {
