@@ -42,46 +42,46 @@ fun Content() {
 
     val (current, parent, children) = when (backStack.lastOrNull()) {
         Settings ->
-            Triple(
-                Settings,
-                null,
-                listOf(Connection, Battery, General)
+            Entry(
+                current = Settings,
+                parent = null,
+                children = listOf(Connection, Battery, General)
             )
 
-        Connection -> Triple(
-            Connection,
-            Settings,
-            listOf()
+        Connection -> Entry(
+            current = Connection,
+            parent = Settings,
+            children = listOf()
         )
 
-        Battery -> Triple(
-            Battery,
-            Settings,
-            listOf(Health),
+        Battery -> Entry(
+            current = Battery,
+            parent = Settings,
+            children = listOf(Health),
         )
 
-        Health -> Triple(
-            Health,
-            Battery,
-            listOf(),
+        Health -> Entry(
+            current = Health,
+            parent = Battery,
+            children = listOf(),
         )
 
-        General -> Triple(
-            General,
-            Settings,
-            listOf(About, Language),
+        General -> Entry(
+            current = General,
+            parent = Settings,
+            children = listOf(About, Language),
         )
 
-        About -> Triple(
-            About,
-            General,
-            listOf(),
+        About -> Entry(
+            current = About,
+            parent = General,
+            children = listOf(),
         )
 
-        Language -> Triple(
-            Language,
-            General,
-            listOf(),
+        Language -> Entry(
+            current = Language,
+            parent = General,
+            children = listOf(),
         )
 
         null -> {
@@ -138,3 +138,9 @@ fun Screen(
         }
     )
 }
+
+private data class Entry(
+    val current: Destination,
+    val parent: Destination?,
+    val children: List<Destination>,
+)
