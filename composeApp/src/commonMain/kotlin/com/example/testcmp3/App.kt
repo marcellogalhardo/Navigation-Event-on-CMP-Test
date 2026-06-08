@@ -56,21 +56,21 @@ fun App() {
                 SelectionScreen(onSelected = { navType = it })
             } else {
                 when (navType) {
-                    NavType.Hardcoded -> Content(onResetNavType = { navType = null })
-                    NavType.Navigation3Chronological -> Column {
-                        Button(onClick = { navType = null }) {
-                            Text("Back to Selection")
-                        }
-                        Text("Navigation3 Chronological (Not implemented yet)")
+                    NavType.Hardcoded -> {
+                        Content(onResetNavType = { navType = null })
                     }
-
                     NavType.Navigation3Hierarchical -> Column {
                         Button(onClick = { navType = null }) {
                             Text("Back to Selection")
                         }
                         Text("Navigation3 Hierarchical (Not implemented yet)")
                     }
-
+                    NavType.Navigation3Chronological -> Column {
+                        Button(onClick = { navType = null }) {
+                            Text("Back to Selection")
+                        }
+                        Text("Navigation3 Chronological (Not implemented yet)")
+                    }
                     else -> error("Unknown Navigation Type")
                 }
             }
