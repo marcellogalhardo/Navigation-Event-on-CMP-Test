@@ -128,3 +128,7 @@ compose.desktop {
 composeCompiler {
     stabilityConfigurationFiles.add(layout.projectDirectory.file("compose-stability.conf"))
 }
+
+configurations.all {
+    exclude(group = "org.jetbrains.androidx.navigationevent")
+}
