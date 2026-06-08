@@ -17,8 +17,12 @@
 // ExperimentalWasmJsInterop is only available in Kotlin 2.2 and newer versions.
 @file:Suppress("OPT_IN_USAGE")
 
-package androidx.navigationevent
+package com.example.testcmp3.v4
 
+import androidx.navigationevent.NavigationEventDispatcher
+import androidx.navigationevent.NavigationEventHistory
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.NavigationEventInput
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -30,8 +34,8 @@ import org.w3c.dom.PopStateEvent
 import org.w3c.dom.Window
 
 /**
- * A [NavigationEventInput] that translates browser history navigation events (popstate) into
- * [NavigationEventDispatcher] events.
+ * A [androidx.navigationevent.NavigationEventInput] that translates browser history navigation events (popstate) into
+ * [androidx.navigationevent.NavigationEventDispatcher] events.
  *
  * This implementation uses the browser's History API to synchronize the application's internal
  * navigation state with the browser's history stack.
@@ -50,13 +54,13 @@ internal class BrowserInput(
      * Controls whether to process [onPopState] from the [WindowCompat].
      *
      * This is used to suppress the 'echo' effect, where programmatic history changes (like
-     * [WindowCompat.go]) trigger a [WindowCompat.TYPE_POP_STATE] event that should not be
+     * [WindowCompat.go]) trigger a [WindowCompat.Companion.TYPE_POP_STATE] event that should not be
      * re-processed as a user-initiated navigation.
      */
     private var isOnPopStateEnabled = true
 
     /**
-     * Controls whether to process [onHistoryChanged] from the [NavigationEventDispatcher].
+     * Controls whether to process [onHistoryChanged] from the [androidx.navigationevent.NavigationEventDispatcher].
      *
      * This is used to prevent redundant history synchronization requests while we are manually
      * winding or unwinding the state in response to a multistep browser navigation.
@@ -70,7 +74,7 @@ internal class BrowserInput(
     private var browserIndex = 0
 
     /**
-     * The number of valid navigation entries currently managed by the [NavigationEventDispatcher].
+     * The number of valid navigation entries currently managed by the [androidx.navigationevent.NavigationEventDispatcher].
      * Any browser history entry with an index equal to or greater than this is considered
      * "invalid".
      */

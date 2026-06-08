@@ -17,7 +17,7 @@
 // ExperimentalWasmJsInterop is only available in Kotlin 2.2 and newer versions.
 @file:Suppress("OPT_IN_USAGE")
 
-package androidx.navigationevent
+package com.example.testcmp3.v4
 
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
