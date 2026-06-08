@@ -15,7 +15,7 @@ kotlin = "2.3.20"
 kotlinx-coroutines = "1.11.0"
 composeMultiplatform = "1.11.1"
 navigation-event = "1.1.1"
-navigation3 = "1.1.2"
+navigation3 = "1.1.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -31,7 +31,7 @@ androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 androidx-navigationevent = { module = "androidx.navigationevent:navigationevent", version.ref = "navigation-event" }
 androidx-navigationevent-compose = { module = "androidx.navigationevent:navigationevent-compose", version.ref = "navigation-event" }
-androidx-navigation3 = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+androidx-navigation3 = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 compose-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "composeMultiplatform" }
 
 [plugins]
