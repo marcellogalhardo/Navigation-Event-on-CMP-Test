@@ -1,7 +1,23 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // ExperimentalWasmJsInterop is only available in Kotlin 2.2 and newer versions.
 @file:Suppress("OPT_IN_USAGE")
 
-package com.example.testcmp3.v3
+package androidx.navigationevent
 
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +40,9 @@ import org.w3c.dom.events.Event
 internal interface WindowCompat {
     /** Returns the current history state as a JavaScript object. */
     val state: JsAny?
+
+    /** The title of the current document. */
+    var title: String
 
     /**
      * A flow of [PopStateEvent]s dispatched by the window whenever the active history entry
@@ -50,10 +69,6 @@ internal interface WindowCompat {
     /** Navigates to a specific [delta] in history and waits for the resulting popstate event. */
     suspend fun go(delta: Int)
 
-    /** Sets the title of the current document. */
-    fun setTitle(title: String)
-
-
     companion object {
         /** The event type for [PopStateEvent]. */
         const val TYPE_POP_STATE = "popstate"
@@ -68,6 +83,12 @@ internal fun WindowCompat(window: Window): WindowCompat {
 private class WindowCompatImpl(private val window: Window) : WindowCompat {
     override val state: JsAny?
         get() = window.history.state
+
+    override var title: String
+        get() = window.document.title
+        set(value) {
+            window.document.title = value
+        }
 
     override val popStateEvents: Flow<PopStateEvent> = callbackFlow {
         val callback: (Event) -> Unit = { event: Event -> trySend(event as PopStateEvent) }
@@ -84,11 +105,6 @@ private class WindowCompatImpl(private val window: Window) : WindowCompat {
         // 'title' is intentionally an empty string as it is ignored by almost all modern browsers.
         window.history.replaceState(data, title = "", url)
     }
-
-    override fun setTitle(title: String) {
-        window.document.title = title
-    }
-
 
     override suspend fun go(delta: Int) {
         // If delta is 0, the browser would reload the current page. Since we are only

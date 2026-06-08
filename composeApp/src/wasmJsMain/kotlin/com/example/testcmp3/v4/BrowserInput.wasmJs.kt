@@ -17,12 +17,8 @@
 // ExperimentalWasmJsInterop is only available in Kotlin 2.2 and newer versions.
 @file:Suppress("OPT_IN_USAGE")
 
-package com.example.testcmp3.v3
+package androidx.navigationevent
 
-import androidx.navigationevent.NavigationEventDispatcher
-import androidx.navigationevent.NavigationEventHistory
-import androidx.navigationevent.NavigationEventInfo
-import androidx.navigationevent.NavigationEventInput
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -34,8 +30,8 @@ import org.w3c.dom.PopStateEvent
 import org.w3c.dom.Window
 
 /**
- * A [androidx.navigationevent.NavigationEventInput] that translates browser history navigation events (popstate) into
- * [androidx.navigationevent.NavigationEventDispatcher] events.
+ * A [NavigationEventInput] that translates browser history navigation events (popstate) into
+ * [NavigationEventDispatcher] events.
  *
  * This implementation uses the browser's History API to synchronize the application's internal
  * navigation state with the browser's history stack.
@@ -54,13 +50,13 @@ internal class BrowserInput(
      * Controls whether to process [onPopState] from the [WindowCompat].
      *
      * This is used to suppress the 'echo' effect, where programmatic history changes (like
-     * [WindowCompat.go]) trigger a [WindowCompat.Companion.TYPE_POP_STATE] event that should not be
+     * [WindowCompat.go]) trigger a [WindowCompat.TYPE_POP_STATE] event that should not be
      * re-processed as a user-initiated navigation.
      */
     private var isOnPopStateEnabled = true
 
     /**
-     * Controls whether to process [onHistoryChanged] from the [androidx.navigationevent.NavigationEventDispatcher].
+     * Controls whether to process [onHistoryChanged] from the [NavigationEventDispatcher].
      *
      * This is used to prevent redundant history synchronization requests while we are manually
      * winding or unwinding the state in response to a multistep browser navigation.
@@ -74,7 +70,7 @@ internal class BrowserInput(
     private var browserIndex = 0
 
     /**
-     * The number of valid navigation entries currently managed by the [androidx.navigationevent.NavigationEventDispatcher].
+     * The number of valid navigation entries currently managed by the [NavigationEventDispatcher].
      * Any browser history entry with an index equal to or greater than this is considered
      * "invalid".
      */
@@ -94,8 +90,8 @@ internal class BrowserInput(
         // (e.g., the back button) into application-level navigation events.
         coroutineScope!!.launch { window.popStateEvents.collect { onPopState(it) } }
 
-        // Attempt to recover the index from the browser's history state (e.g., after a page refresh).
-        // If no state exists, seed it with 0.
+        // Attempt to recover the index from the browser's history state (e.g., after a page
+        // refresh). If no state exists, seed it with 0.
         val currentState = window.state
         val recoveredIndex = (currentState as? JsNumber)?.toInt()
 
@@ -104,9 +100,12 @@ internal class BrowserInput(
             logicalHistorySize = recoveredIndex + 1
             pushedHistorySize = recoveredIndex + 1
         } else {
+            // TODO(mgalhardo): Blindly replacing the state with a primitive number overwrites
+            //  any existing application state stored in history.state. We should instead use
+            //  a wrapper JS object and merge our navigation index property (e.g., { __index: 0 })
+            //  with the existing state to preserve app data.
             window.replaceState(0.toJsNumber())
         }
-
     }
 
     /**
@@ -162,10 +161,8 @@ internal class BrowserInput(
     override fun onHistoryChanged(history: NavigationEventHistory) {
         if (!isOnHistoryChangedEnabled) return
         if (history.currentIndex < 0) return
-        // We ignore None to avoid pushing invalid states to the browser history when the app
-        // is temporarily in a blank state during transitions.
+        // TODO: We may get None first when disposing the previous Composable destination.
         if (history.mergedHistory[history.currentIndex] == NavigationEventInfo.None) return
-
 
         coroutineScope!!.launch {
             isOnPopStateEnabled = false
@@ -199,7 +196,7 @@ internal class BrowserInput(
                 // TODO: Revisit using toString() for URL fragment and title
                 val infoStr = info.toString()
                 window.pushState(i.toJsNumber(), url = "#$infoStr")
-                window.setTitle(infoStr)
+                window.title = infoStr
             }
 
             window.go(newIndex - (newSize - 1))
@@ -210,11 +207,10 @@ internal class BrowserInput(
         val currentInfo = newHistory.mergedHistory[newIndex]
         // TODO: Revisit using toString() for URL fragment and title
         val currentInfoStr = currentInfo.toString()
-        window.setTitle(currentInfoStr)
+        window.title = currentInfoStr
         window.replaceState(newIndex.toJsNumber(), url = "#$currentInfoStr")
 
         browserIndex = newIndex
         logicalHistorySize = newSize
     }
-
 }
