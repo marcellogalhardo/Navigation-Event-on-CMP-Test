@@ -31,7 +31,7 @@ androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 androidx-navigationevent = { module = "androidx.navigationevent:navigationevent", version.ref = "navigation-event" }
 androidx-navigationevent-compose = { module = "androidx.navigationevent:navigationevent-compose", version.ref = "navigation-event" }
-androidx-navigation3 = { module = "androidx.navigation3:navigation3", version.ref = "navigation3" }
+androidx-navigation3 = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 compose-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "composeMultiplatform" }
 
 [plugins]
