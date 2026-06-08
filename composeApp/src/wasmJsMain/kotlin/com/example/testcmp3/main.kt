@@ -14,14 +14,7 @@ import kotlinx.browser.window
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val dispatcher = NavigationEventDispatcher()
-    val owner = object : NavigationEventDispatcherOwner {
-        override val navigationEventDispatcher: NavigationEventDispatcher
-            get() = dispatcher
-    }
-    val input = BrowserInput(window)
-    dispatcher.addInput(input)
-
+    val owner = WebNavigationEventDispatcherOwner()
     ComposeViewport(document.body!!) {
         CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides owner) {
             App()
