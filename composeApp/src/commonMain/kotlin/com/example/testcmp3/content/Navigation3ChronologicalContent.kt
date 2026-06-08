@@ -15,11 +15,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
+import androidx.navigationevent.compose.NavigationEventHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 
 @Composable
 fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
     // In Chronological navigation, the backstack represents the history of visits.
     var backStack by remember { mutableStateOf(listOf(1)) }
+    val currentPage = backStack.last()
 
     Column {
         Button(onClick = onResetNavType) {
@@ -54,6 +57,22 @@ fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
             }
         )
     }
+
+    NavigationEventHandler(
+        state = rememberNavigationEventState(
+            currentInfo = PageInfo(currentPage),
+            backInfo = backStack.dropLast(1).map { PageInfo(it) },
+            forwardInfo = listOf(PageInfo(currentPage + 1)),
+        ),
+        onBackCompleted = {
+            if (backStack.size > 1) {
+                backStack = backStack.dropLast(1)
+            }
+        },
+        onForwardCompleted = {
+            backStack = backStack + (currentPage + 1)
+        }
+    )
 }
 
 @Composable
