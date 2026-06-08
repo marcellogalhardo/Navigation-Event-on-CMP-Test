@@ -3,10 +3,6 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
     repositories {
-        mavenLocal()
-        maven {
-            setUrl("/Users/kuanyingchou/androidx-main/out/repository/") // Change this
-        }
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
@@ -15,19 +11,14 @@ pluginManagement {
             }
         }
         mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev/") // pre-release
+        maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/bootstrap/") // pre-release
         gradlePluginPortal()
     }
 }
 
 dependencyResolutionManagement {
     repositories {
-        mavenLocal()
-        maven {
-            setUrl("/Users/kuanyingchou/androidx-main/out/repository/") // Change this
-        }
-        maven {
-            setUrl("https://maven.pkg.jetbrains.space/public/p/compose/dev/")
-        }
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
@@ -36,6 +27,8 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev/") // bleeding-edge
+        mavenLocal()
     }
 }
 
