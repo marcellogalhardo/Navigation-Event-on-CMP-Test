@@ -13,7 +13,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation3.NavDisplay
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.ui.NavDisplay
 
 @Composable
 fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
@@ -30,27 +31,30 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         NavDisplay(
-            backstack = backStack,
-            onBack = { if (backStack.size > 1) backStack = backStack.dropLast(1) }
-        ) { page ->
-            NumberedPage(
-                number = page,
-                onForward = { 
-                    // Move forward: push the next page onto the stack
-                    backStack = backStack + (page + 1)
-                },
-                onBackstack = {
-                    // Move backstack: in hierarchical, this means navigating to the parent
-                    if (backStack.size > 1) {
-                        backStack = backStack.dropLast(1)
-                    }
-                },
-                onJumpToFive = {
-                    // Demonstrate hierarchy: jumping to 5 builds the full path [1, 2, 3, 4, 5]
-                    backStack = listOf(1, 2, 3, 4, 5)
+            backStack = backStack,
+            onBack = { if (backStack.size > 1) backStack = backStack.dropLast(1) },
+            entryProvider = entryProvider {
+                entry<Int> { page ->
+                    NumberedPage(
+                        number = page,
+                        onForward = {
+                            // Move forward: push the next page onto the stack
+                            backStack = backStack + (page + 1)
+                        },
+                        onBackstack = {
+                            // Move backstack: in hierarchical, this means navigating to the parent
+                            if (backStack.size > 1) {
+                                backStack = backStack.dropLast(1)
+                            }
+                        },
+                        onJumpToFive = {
+                            // Demonstrate hierarchy: jumping to 5 builds the full path [1, 2, 3, 4, 5]
+                            backStack = listOf(1, 2, 3, 4, 5)
+                        }
+                    )
                 }
-            )
-        }
+            },
+        )
     }
 }
 
