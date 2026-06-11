@@ -92,11 +92,15 @@ fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
                 }
             },
             onForwardCompleted = {
-//                repeat(entries.size - sceneState.currentScene.forward.size) {
-//                    if (backStack.size > 1) {
-//                        backStack = backStack.dropLast(1)
-//                    }
-//                }
+                val nextScene = gestureState.forwardInfo.firstOrNull()?.scene
+                if (nextScene != null) {
+                    val diff = nextScene.entries.size - entries.size
+                    repeat(diff) { index ->
+                        val newEntryIndex = entries.size + index
+                        val newKey = nextScene.entries[newEntryIndex].contentKey.toString().toInt()
+                        backStack = backStack + newKey
+                    }
+                }
             }
         )
     }
