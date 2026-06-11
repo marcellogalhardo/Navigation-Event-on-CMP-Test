@@ -117,16 +117,22 @@ internal class BrowserInput(
      * [dispatchOnForwardCompleted] calls.
      */
     private suspend fun onPopState(popStateEvent: PopStateEvent) {
+        println("BrowserInput: onPopState popStateEvent=$popStateEvent, isOnPopStateEnabled=$isOnPopStateEnabled")
         if (!isOnPopStateEnabled) return
 
-        val state = popStateEvent.state ?: return
-        val newIndex = (state as? JsNumber)?.toInt() ?: return
+        val state = popStateEvent.state
+        println("BrowserInput: onPopState state=$state")
+        if (state == null) return
+        val newIndex = (state as? JsNumber)?.toInt()
+        println("BrowserInput: onPopState newIndex=$newIndex, browserIndex=$browserIndex, logicalHistorySize=$logicalHistorySize")
+        if (newIndex == null) return
         if (newIndex == browserIndex) return
 
         // If the browser attempts to navigate to a history state we no longer track (e.g.,
         // after a manual state replacement), force the browser to revert the native navigation
         // to stay in sync with our internal history stack.
         if (newIndex !in 0 until logicalHistorySize) {
+            println("BrowserInput: onPopState newIndex $newIndex is out of bounds [0, $logicalHistorySize), reverting to browserIndex $browserIndex")
             isOnPopStateEnabled = false
             window.go(browserIndex - newIndex)
             isOnPopStateEnabled = true
@@ -138,18 +144,22 @@ internal class BrowserInput(
         // intermediate steps to prevent jarring, unnecessary UI churn.
         val steps = abs(newIndex - browserIndex)
         val isForward = newIndex > browserIndex
+        println("BrowserInput: onPopState steps=$steps, isForward=$isForward")
 
         isOnHistoryChangedEnabled = false
         repeat(steps) {
             if (isForward) {
+                println("BrowserInput: onPopState dispatchOnForwardCompleted")
                 dispatchOnForwardCompleted()
             } else {
+                println("BrowserInput: onPopState dispatchOnBackCompleted")
                 dispatchOnBackCompleted()
             }
         }
         isOnHistoryChangedEnabled = true
 
         browserIndex = newIndex
+        println("BrowserInput: onPopState finished, browserIndex updated to $browserIndex")
     }
 
     override fun onRemoved() {
@@ -184,17 +194,23 @@ internal class BrowserInput(
     private suspend fun updateBrowserHistory(newHistory: NavigationEventHistory) {
         val newSize = newHistory.mergedHistory.size
         val newIndex = newHistory.currentIndex
+        println("BrowserInput: updateBrowserHistory start. newSize=$newSize, newIndex=$newIndex, pushedHistorySize=$pushedHistorySize, browserIndex=$browserIndex, logicalHistorySize=$logicalHistorySize")
 
         if (pushedHistorySize >= newSize) {
-            window.go(newIndex - browserIndex)
+            val delta = newIndex - browserIndex
+            println("BrowserInput: updateBrowserHistory pushedHistorySize >= newSize. calling window.go($delta)")
+            window.go(delta)
         } else {
             // Browser History API restricts direct stack manipulation. To expand history
             // capacity, we must physically move to the end of the current stack, push new
             // placeholder states to increase the length, and then rewind to the target index.
             // This sequence triggers multiple native PopStateEvents.
 
-            window.go(pushedHistorySize - 1 - browserIndex)
+            val delta1 = pushedHistorySize - 1 - browserIndex
+            println("BrowserInput: updateBrowserHistory pushedHistorySize < newSize. moving to end. calling window.go($delta1)")
+            window.go(delta1)
 
+            println("BrowserInput: updateBrowserHistory pushing placeholder states from $pushedHistorySize to $newSize")
             for (i in pushedHistorySize until newSize) {
                 val info = newHistory.mergedHistory[i]
                 // TODO: Revisit using toString() for URL fragment and title
@@ -203,7 +219,9 @@ internal class BrowserInput(
                 window.title = infoStr
             }
 
-            window.go(newIndex - (newSize - 1))
+            val delta2 = newIndex - (newSize - 1)
+            println("BrowserInput: updateBrowserHistory rewinding to target index. calling window.go($delta2)")
+            window.go(delta2)
 
             pushedHistorySize = newSize
         }
@@ -216,5 +234,6 @@ internal class BrowserInput(
 
         browserIndex = newIndex
         logicalHistorySize = newSize
+        println("BrowserInput: updateBrowserHistory finished. browserIndex updated to $browserIndex, logicalHistorySize updated to $logicalHistorySize")
     }
 }
