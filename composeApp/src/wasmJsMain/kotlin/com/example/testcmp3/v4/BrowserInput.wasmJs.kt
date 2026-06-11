@@ -87,6 +87,8 @@ internal class BrowserInput(
      */
     private var pushedHistorySize = 1
 
+    private val pushedKeys = mutableListOf<String>()
+
     override fun onAdded(dispatcher: NavigationEventDispatcher) {
         coroutineScope = CoroutineScope(Job() + coroutineDispatcher)
 
@@ -103,12 +105,14 @@ internal class BrowserInput(
             browserIndex = recoveredIndex
             logicalHistorySize = recoveredIndex + 1
             pushedHistorySize = recoveredIndex + 1
+            repeat(recoveredIndex + 1) { pushedKeys.add("") }
         } else {
             // TODO(mgalhardo): Blindly replacing the state with a primitive number overwrites
             //  any existing application state stored in history.state. We should instead use
             //  a wrapper JS object and merge our navigation index property (e.g., { __index: 0 })
             //  with the existing state to preserve app data.
             window.replaceState(0.toJsNumber())
+            pushedKeys.add(window.state.toString())
         }
     }
 
@@ -170,6 +174,7 @@ internal class BrowserInput(
         pushedHistorySize = 1
         isOnPopStateEnabled = true
         isOnHistoryChangedEnabled = true
+        pushedKeys.clear()
     }
 
     override fun onHistoryChanged(history: NavigationEventHistory) {
@@ -194,7 +199,30 @@ internal class BrowserInput(
     private suspend fun updateBrowserHistory(newHistory: NavigationEventHistory) {
         val newSize = newHistory.mergedHistory.size
         val newIndex = newHistory.currentIndex
+        val currentInfo = newHistory.mergedHistory[newIndex]
+        val currentInfoStr = currentInfo.toString()
+
         println("BrowserInput: updateBrowserHistory start. newSize=$newSize, newIndex=$newIndex, pushedHistorySize=$pushedHistorySize, browserIndex=$browserIndex, logicalHistorySize=$logicalHistorySize")
+
+        // Branching occurs if we move forward and the target slot has a different key or is new
+        val isBranching = newIndex > browserIndex && 
+                (newIndex >= pushedKeys.size || pushedKeys[newIndex] != currentInfoStr)
+
+        if (isBranching) {
+            window.title = currentInfoStr
+            println("BrowserInput: updateBrowserHistory branching push. calling window.pushState($newIndex) to discard forward history")
+            window.pushState(newIndex.toJsNumber(), url = "#$currentInfoStr")
+
+            while (pushedKeys.size > newIndex) {
+                pushedKeys.removeAt(pushedKeys.size - 1)
+            }
+            pushedKeys.add(currentInfoStr)
+
+            pushedHistorySize = newSize
+            browserIndex = newIndex
+            logicalHistorySize = newSize
+            return
+        }
 
         if (pushedHistorySize >= newSize) {
             val delta = newIndex - browserIndex
@@ -217,6 +245,7 @@ internal class BrowserInput(
                 val infoStr = info.toString()
                 window.pushState(i.toJsNumber(), url = "#$infoStr")
                 window.title = infoStr
+                pushedKeys.add(infoStr)
             }
 
             val delta2 = newIndex - (newSize - 1)
@@ -226,14 +255,26 @@ internal class BrowserInput(
             pushedHistorySize = newSize
         }
 
-        val currentInfo = newHistory.mergedHistory[newIndex]
-        // TODO: Revisit using toString() for URL fragment and title
-        val currentInfoStr = currentInfo.toString()
         window.title = currentInfoStr
         window.replaceState(newIndex.toJsNumber(), url = "#$currentInfoStr")
+
+        while (pushedKeys.size <= newIndex) {
+            pushedKeys.add("")
+        }
+        pushedKeys[newIndex] = currentInfoStr
 
         browserIndex = newIndex
         logicalHistorySize = newSize
         println("BrowserInput: updateBrowserHistory finished. browserIndex updated to $browserIndex, logicalHistorySize updated to $logicalHistorySize")
+    }
+
+    fun reset() {
+        browserIndex = 0
+        logicalHistorySize = 1
+        pushedHistorySize = 1
+        pushedKeys.clear()
+        pushedKeys.add(window.state.toString())
+        window.replaceState(0.toJsNumber(), "")
+        println("BrowserInput: reset history state to index 0")
     }
 }
