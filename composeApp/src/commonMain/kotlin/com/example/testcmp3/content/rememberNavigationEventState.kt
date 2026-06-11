@@ -17,23 +17,33 @@ internal fun <T : Any> rememberNavigationEventState(
     sceneState: SceneState<T>
 ): NavigationEventState<SceneInfo<T>> {
     var prevSceneState by remember { mutableStateOf<SceneState<T>?>(null) }
+    var prevForwardScenes by remember { mutableStateOf(emptyList<Scene<T>>()) }
 
     val forwardScenes = remember(sceneState, prevSceneState) {
-        if (prevSceneState == null) return@remember emptyList()
+        if (prevSceneState == null) {
+            println("rememberNavigationEventState: prevSceneState is null, returning empty forwardScenes")
+            return@remember emptyList<Scene<T>>()
+        }
 
-        val prevAllScenes = prevSceneState!!.previousScenes + prevSceneState!!.currentScene
+        val prevAllScenes = prevSceneState!!.previousScenes + prevSceneState!!.currentScene + prevForwardScenes
         val currentKey = sceneState.currentScene.key
+        println("rememberNavigationEventState: sceneState.previousScenes=${sceneState.previousScenes.map { it.key }}")
 
         val indexInPrev = prevAllScenes.indexOfFirst { it.key == currentKey }
-        if (indexInPrev != -1 && indexInPrev < prevAllScenes.size - 1) {
+        val result = if (indexInPrev != -1 && indexInPrev < prevAllScenes.size - 1) {
             prevAllScenes.subList(indexInPrev + 1, prevAllScenes.size)
         } else {
             emptyList()
         }
+
+        println("rememberNavigationEventState: currentKey=$currentKey, indexInPrev=$indexInPrev, prevAllScenes=${prevAllScenes.map { it.key }}, forwardScenes=${result.map { it.key }}")
+        result
     }
 
     SideEffect {
+        println("rememberNavigationEventState: SideEffect updating prevSceneState to key=${sceneState.currentScene.key}, prevForwardScenes=${forwardScenes.map { it.key }}")
         prevSceneState = sceneState
+        prevForwardScenes = forwardScenes
     }
 
     val currentInfo = SceneInfo(sceneState.currentScene)

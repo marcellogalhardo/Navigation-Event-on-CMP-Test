@@ -94,12 +94,8 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
             onForwardCompleted = {
                 val nextScene = gestureState.forwardInfo.firstOrNull()?.scene
                 if (nextScene != null) {
-                    val diff = nextScene.entries.size - entries.size
-                    repeat(diff) { index ->
-                        val newEntryIndex = entries.size + index
-                        val newKey = nextScene.entries[newEntryIndex].contentKey.toString().toInt()
-                        backStack = backStack + newKey
-                    }
+                    val targetEntries = nextScene.previousEntries + nextScene.entries
+                    backStack = targetEntries.map { it.contentKey.toString().toInt() }
                 }
             }
         )
