@@ -73,7 +73,15 @@ fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
         }
 
         Text("Chronological Model", fontSize = 18.sp, modifier = Modifier.padding(vertical = 8.dp))
-        Text("Current Stack: ${backStack.joinToString(" > ")}")
+        Text(
+            text = "Explanation: In Chronological model, the backstack represents a history trail (duplicates allowed). " +
+                   "Try going 1 -> 2, then click 'Visit Page 1 again (Chronological)'. The stack will successfully grow to [1, 2, 1], and the forward history (if any) will be cleared since we performed a new push step.",
+            fontSize = 12.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            text = "Current Stack: ${backStack.joinToString(" > ")}"
+        )
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         NavDisplay(

@@ -46,6 +46,10 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
                             backStack = backStack.dropLast(1)
                         }
                     },
+                    onVisitPrevious = {
+                        // Attempt to push a duplicate key (invalid in hierarchical model)
+                        backStack = backStack + 1
+                    },
                     onJumpToFive = {
                         // Demonstrate hierarchy: jumping to 5 builds the full path [1, 2, 3, 4, 5]
                         backStack = listOf(1, 2, 3, 4, 5)
@@ -73,7 +77,15 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
         }
 
         Text("Hierarchical Model", fontSize = 18.sp, modifier = Modifier.padding(vertical = 8.dp))
-        Text("Current Stack: ${backStack.joinToString(" > ")}")
+        Text(
+            text = "Explanation: In Hierarchical model, the backstack represents a tree path (no duplicate keys). " +
+                   "Try going 1 -> 2, then click 'Visit Page 1 again (Hierarchical)'. The library automatically resolves the duplicate by popping back to the first instance of Page 1 and clearing the forward history.",
+            fontSize = 12.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            text = "Current Stack: ${backStack.joinToString(" > ")}"
+        )
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         NavDisplay(
@@ -107,6 +119,7 @@ private fun NumberedPage(
     number: Int,
     onForward: () -> Unit,
     onBackstack: () -> Unit,
+    onVisitPrevious: () -> Unit,
     onJumpToFive: () -> Unit
 ) {
     Column {
@@ -117,6 +130,9 @@ private fun NumberedPage(
         if (number > 1) {
             Button(onClick = onBackstack) {
                 Text("Move Backstack (to Parent)")
+            }
+            Button(onClick = onVisitPrevious) {
+                Text("Visit Page 1 again (Hierarchical)")
             }
         }
         if (number == 1) {

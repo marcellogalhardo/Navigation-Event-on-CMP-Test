@@ -16,34 +16,42 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 internal fun <T : Any> rememberNavigationEventState(
     sceneState: SceneState<T>
 ): NavigationEventState<SceneInfo<T>> {
-    var prevSceneState by remember { mutableStateOf<SceneState<T>?>(null) }
-    var prevForwardScenes by remember { mutableStateOf(emptyList<Scene<T>>()) }
+    val prevSceneStateHolder = remember { arrayOf<SceneState<T>?>(null) }
+    val prevForwardScenes = remember { mutableListOf<Scene<T>>() }
 
-    val forwardScenes = remember(sceneState, prevSceneState) {
+    val forwardScenes = remember(sceneState) {
+        val prevSceneState = prevSceneStateHolder[0]
         if (prevSceneState == null) {
-            println("rememberNavigationEventState: prevSceneState is null, returning empty forwardScenes")
             return@remember emptyList<Scene<T>>()
         }
 
-        val prevAllScenes = prevSceneState!!.previousScenes + prevSceneState!!.currentScene + prevForwardScenes
+        val prevEntriesSize = prevSceneState.entries.size
+        val currentEntriesSize = sceneState.entries.size
         val currentKey = sceneState.currentScene.key
-        println("rememberNavigationEventState: sceneState.previousScenes=${sceneState.previousScenes.map { it.key }}")
+        
+        val isBackStep = currentEntriesSize < prevEntriesSize && 
+                prevSceneState.previousScenes.any { it.key == currentKey }
+        val isForwardStep = currentKey == prevForwardScenes.firstOrNull()?.key
 
+        val prevAllScenes = prevSceneState.previousScenes + prevSceneState.currentScene + prevForwardScenes
         val indexInPrev = prevAllScenes.indexOfFirst { it.key == currentKey }
-        val result = if (indexInPrev != -1 && indexInPrev < prevAllScenes.size - 1) {
-            prevAllScenes.subList(indexInPrev + 1, prevAllScenes.size)
+        val result = if (isBackStep || isForwardStep) {
+            if (indexInPrev != -1 && indexInPrev < prevAllScenes.size - 1) {
+                prevAllScenes.subList(indexInPrev + 1, prevAllScenes.size)
+            } else {
+                emptyList()
+            }
         } else {
             emptyList()
         }
 
-        println("rememberNavigationEventState: currentKey=$currentKey, indexInPrev=$indexInPrev, prevAllScenes=${prevAllScenes.map { it.key }}, forwardScenes=${result.map { it.key }}")
         result
     }
 
     SideEffect {
-        println("rememberNavigationEventState: SideEffect updating prevSceneState to key=${sceneState.currentScene.key}, prevForwardScenes=${forwardScenes.map { it.key }}")
-        prevSceneState = sceneState
-        prevForwardScenes = forwardScenes
+        prevSceneStateHolder[0] = sceneState
+        prevForwardScenes.clear()
+        prevForwardScenes.addAll(forwardScenes)
     }
 
     val currentInfo = SceneInfo(sceneState.currentScene)
