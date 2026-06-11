@@ -47,8 +47,8 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
                         }
                     },
                     onVisitPrevious = {
-                        // Attempt to push a duplicate key (invalid in hierarchical model)
-                        backStack = backStack + 1
+                        // In hierarchical, going to a parent means popping back to it
+                        backStack = listOf(1)
                     },
                     onJumpToFive = {
                         // Demonstrate hierarchy: jumping to 5 builds the full path [1, 2, 3, 4, 5]
