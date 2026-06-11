@@ -28,8 +28,6 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
     // In Hierarchical navigation, the backstack represents the path to the root.
     var backStack by remember { mutableStateOf(listOf(1)) }
-    var forwardStack by remember { mutableStateOf(listOf<Int>()) }
-    val currentPage = backStack.last()
 
     val entries = rememberDecoratedNavEntries(
         backStack = backStack,
@@ -40,20 +38,17 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
                     onForward = {
                         // Move forward: push the next page onto the stack
                         backStack = backStack + (page + 1)
-                        forwardStack = emptyList()
                     },
                     onBackstack = {
                         // Move backstack: in hierarchical, this means navigating to the parent
                         if (backStack.size > 1) {
                             val popped = backStack.last()
                             backStack = backStack.dropLast(1)
-                            forwardStack = listOf(popped) + forwardStack
                         }
                     },
                     onJumpToFive = {
                         // Demonstrate hierarchy: jumping to 5 builds the full path [1, 2, 3, 4, 5]
                         backStack = listOf(1, 2, 3, 4, 5)
-                        forwardStack = emptyList()
                     }
                 )
             }
@@ -65,9 +60,7 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
         sceneStrategies = listOf(SinglePaneSceneStrategy()),
         onBack = {
             if (backStack.size > 1) {
-                val popped = backStack.last()
                 backStack = backStack.dropLast(1)
-                forwardStack = listOf(popped) + forwardStack
             }
         },
     )
@@ -87,25 +80,26 @@ fun Navigation3HierarchicalContent(onResetNavType: () -> Unit) {
             sceneState = sceneState,
             navigationEventState = gestureState,
         )
-    }
 
-    NavigationEventHandler(
-        state = gestureState,
-        onBackCompleted = {
-            if (backStack.size > 1) {
-                val popped = backStack.last()
-                backStack = backStack.dropLast(1)
-                forwardStack = listOf(popped) + forwardStack
+        NavigationEventHandler(
+            state = gestureState,
+            isBackEnabled = sceneState.currentScene.previousEntries.isNotEmpty(),
+            onBackCompleted = {
+                repeat(entries.size - sceneState.currentScene.previousEntries.size) {
+                    if (backStack.size > 1) {
+                        backStack = backStack.dropLast(1)
+                    }
+                }
+            },
+            onForwardCompleted = {
+//                repeat(entries.size - sceneState.currentScene.forward.size) {
+//                    if (backStack.size > 1) {
+//                        backStack = backStack.dropLast(1)
+//                    }
+//                }
             }
-        },
-        onForwardCompleted = {
-            if (forwardStack.isNotEmpty()) {
-                val next = forwardStack.first()
-                forwardStack = forwardStack.drop(1)
-                backStack = backStack + next
-            }
-        }
-    )
+        )
+    }
 }
 
 @Composable

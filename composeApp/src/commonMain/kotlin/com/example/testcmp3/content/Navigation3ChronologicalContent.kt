@@ -21,6 +21,8 @@ import androidx.navigation3.scene.rememberSceneState
 import androidx.navigation3.scene.SinglePaneSceneStrategy
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigationevent.NavigationEventHandler
+import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.NavigationEventHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 
@@ -28,8 +30,6 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
     // In Chronological navigation, the backstack represents the history of visits.
     var backStack by remember { mutableStateOf(listOf(1)) }
-    var forwardStack by remember { mutableStateOf(listOf<Int>()) }
-    val currentPage = backStack.last()
 
     val entries = rememberDecoratedNavEntries(
         backStack = backStack,
@@ -40,17 +40,14 @@ fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
                     onForward = {
                         // Move forward: push the next page
                         backStack = backStack + (page + 1)
-                        forwardStack = emptyList()
                     },
                     onVisitPrevious = { prev ->
                         // Move backstack: in chronological, we can "push" a previous page again
                         backStack = backStack + prev
-                        forwardStack = emptyList()
                     },
                     onJumpToFive = {
                         // Demonstrate chronological: jumping to 5 just adds 5 to the history [1, 5]
                         backStack = backStack + 5
-                        forwardStack = emptyList()
                     }
                 )
             }
@@ -64,7 +61,6 @@ fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
             if (backStack.size > 1) {
                 val popped = backStack.last()
                 backStack = backStack.dropLast(1)
-                forwardStack = listOf(popped) + forwardStack
             }
         },
     )
@@ -84,25 +80,26 @@ fun Navigation3ChronologicalContent(onResetNavType: () -> Unit) {
             sceneState = sceneState,
             navigationEventState = gestureState,
         )
-    }
 
-    NavigationEventHandler(
-        state = gestureState,
-        onBackCompleted = {
-            if (backStack.size > 1) {
-                val popped = backStack.last()
-                backStack = backStack.dropLast(1)
-                forwardStack = listOf(popped) + forwardStack
+        NavigationEventHandler(
+            state = gestureState,
+            isBackEnabled = sceneState.currentScene.previousEntries.isNotEmpty(),
+            onBackCompleted = {
+                repeat(entries.size - sceneState.currentScene.previousEntries.size) {
+                    if (backStack.size > 1) {
+                        backStack = backStack.dropLast(1)
+                    }
+                }
+            },
+            onForwardCompleted = {
+//                repeat(entries.size - sceneState.currentScene.forward.size) {
+//                    if (backStack.size > 1) {
+//                        backStack = backStack.dropLast(1)
+//                    }
+//                }
             }
-        },
-        onForwardCompleted = {
-            if (forwardStack.isNotEmpty()) {
-                val next = forwardStack.first()
-                forwardStack = forwardStack.drop(1)
-                backStack = backStack + next
-            }
-        }
-    )
+        )
+    }
 }
 
 @Composable
